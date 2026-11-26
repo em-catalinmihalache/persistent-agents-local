@@ -9,7 +9,7 @@ public class EmbeddingGenerator : IEmbeddingGenerator
     private readonly string _model;
     public EmbeddingGenerator(
         HttpClient httpClient,
-        string model = "nomic-embed-text")
+        string model)
     {
         _httpClient = httpClient;
         _model = model;

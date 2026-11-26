@@ -13,7 +13,7 @@ public class OllamaAgentRuntime : IAgentRuntime
     private readonly string _endpoint;
     public OllamaAgentRuntime(
         VectorRetrievalService retrievalService,
-        string endpoint = "http://localhost:11434/v1")
+        string endpoint)
     {
         _retrievalService = retrievalService;
         _endpoint = endpoint;
@@ -39,9 +39,9 @@ public class OllamaAgentRuntime : IAgentRuntime
             StringComparison.OrdinalIgnoreCase);
 
         var chatAgent = OllamaAgentFactory.Create(
+            _endpoint,
             agent,
             isRagAgent ? null : _retrievalService,
-            _endpoint,
             includeDocumentSearchTool: !isRagAgent);
 
         var messages = conversationHistory

@@ -5,16 +5,15 @@ using PersistentAgents.Local.RAG.Tools;
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using System.Text.Json;
 
 namespace PersistentAgents.Local.Agents.Factories;
 
 public static class OllamaAgentFactory
 {
     public static ChatClientAgent Create(
+        string endpoint,
         AgentDefinition definition,
         VectorRetrievalService? retrievalService = null,
-        string endpoint = "http://localhost:11434/v1",
         bool includeDocumentSearchTool = true)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -36,8 +35,8 @@ public static class OllamaAgentFactory
         }
 
         var chatClient = OllamaChatClientFactory.Create(
-            model: definition.Model,
-            endpoint: endpoint);
+            endpoint,
+            model: definition.Model);
 
         var tools = new List<AITool>();
 

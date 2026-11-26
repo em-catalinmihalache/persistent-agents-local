@@ -32,12 +32,12 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 builder.Logging.AddFilter("System.Net.Http.HttpClient.ollama", LogLevel.Warning);
 
-var ollamaRootEndpoint = builder.Configuration["OLLAMA:LOCAL_ROOT_ENDPOINT"]
+var ollamaLocalEndpoint = builder.Configuration["OLLAMA:LOCAL_ENDPOINT"]
     ?? "http://localhost:11434";
-var ollamaV1Endpoint = builder.Configuration["OLLAMA:LOCAL_V1_ENDPOINT"]
-    ?? "http://localhost:11434/v1";
-var modelName = builder.Configuration["OLLAMA:LOCAL_MODEL_NAME"]
+var ollamaLargeLanguageModel = builder.Configuration["OLLAMA:LARGE_LANGUAGE_MODEL"]
     ?? "qwen2.5:3b";
+var ollamaEmbeddingModel = builder.Configuration["OLLAMA:EMBEDDING_MODEL"]
+    ?? "nomic-embed-text";
 
 // Keep the database beside the SampleApp project, including when launched from bin/Debug.
 var databasePath = Path.GetFullPath(Path.Combine(
@@ -58,14 +58,15 @@ builder.Services.AddSingleton<CosineSimilarityCalculator>();
 builder.Services.AddScoped<VectorRetrievalService>();
 builder.Services.AddScoped<IAgentRuntime>(services => new OllamaAgentRuntime(
     services.GetRequiredService<VectorRetrievalService>(),
-    ollamaV1Endpoint));
+    new Uri(ollamaLocalEndpoint.TrimEnd('/') + "/v1").AbsoluteUri));
 builder.Services.AddScoped<IAgentExecutionService, AgentExecutionService>();
 
 builder.Services.AddHttpClient("ollama", client =>
-    client.BaseAddress = new Uri(ollamaRootEndpoint.TrimEnd('/') + "/"));
+    client.BaseAddress = new Uri(ollamaLocalEndpoint.TrimEnd('/') + "/"));
 builder.Services.AddScoped<IEmbeddingGenerator>(services =>
     new EmbeddingGenerator(
-        services.GetRequiredService<IHttpClientFactory>().CreateClient("ollama")));
+        services.GetRequiredService<IHttpClientFactory>().CreateClient("ollama"),
+        ollamaEmbeddingModel));
 
 using var host = builder.Build();
 
@@ -90,7 +91,7 @@ await using (var scope = host.Services.CreateAsyncScope())
             Description = "Answers questions using only the indexed document.md file.",
             Instructions = instructions,
             AgentType = "RAG",
-            Model = modelName,
+            Model = ollamaLargeLanguageModel,
             Provider = "Ollama",
             Temperature = 0.2f
         });
@@ -100,7 +101,7 @@ await using (var scope = host.Services.CreateAsyncScope())
         agent.Description = "Answers questions using only the indexed document.md file.";
         agent.Instructions = instructions;
         agent.AgentType = "RAG";
-        agent.Model = modelName;
+        agent.Model = ollamaLargeLanguageModel;
         agent.Provider = "Ollama";
         agent.Temperature = 0.2f;
         await agentService.UpdateAgentAsync(agent);
@@ -147,7 +148,7 @@ await using (var scope = host.Services.CreateAsyncScope())
     await dbContext.SaveChangesAsync();
 
     Console.WriteLine("=== Local AgenticRAG Sample ===");
-    Console.WriteLine($"Agent: {agent.Name} ({agent.Model}, {agent.Provider})");
+    Console.WriteLine($"Agent: {agent.Name} ({agent.Provider}, {agent.Model}, {ollamaEmbeddingModel})");
     Console.WriteLine($"Document: {Path.GetFileName(documentPath)}");
     Console.WriteLine($"Conversation thread: {conversation.Id}");
     Console.WriteLine($"Question: {question}");
