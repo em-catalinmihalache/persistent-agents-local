@@ -1,0 +1,120 @@
+﻿using PersistentAgents.Local.Agents.Tools;
+using PersistentAgents.Local.Core.Models;
+using PersistentAgents.Local.RAG.Services;
+using PersistentAgents.Local.RAG.Tools;
+
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using System.Text.Json;
+
+namespace PersistentAgents.Local.Agents.Factories;
+
+public static class OllamaAgentFactory
+{
+    public static ChatClientAgent Create(
+        AgentDefinition definition,
+        VectorRetrievalService? retrievalService = null,
+        string endpoint = "http://localhost:11434/v1",
+        bool includeDocumentSearchTool = true)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        if (!string.Equals(
+            definition.Provider,
+            "Ollama",
+            StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"Provider '{definition.Provider}' is not supported.");
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.Model))
+        {
+            throw new ArgumentException(
+                "Agent model is required.",
+                nameof(definition));
+        }
+
+        var chatClient = OllamaChatClientFactory.Create(
+            model: definition.Model,
+            endpoint: endpoint);
+
+        var tools = new List<AITool>();
+
+        switch (definition.AgentType.ToLowerInvariant())
+        {
+            case "general":
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        CurrentDateTimeTool.GetCurrentDateTime));
+
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        CurrentDateTimeTool.GetCurrentDate));
+
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        CurrentDateTimeTool.GetCurrentTime));
+
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        WeatherOptionsTool.GetWeather));
+                break;
+
+            case "calculator":
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        CalculatorTool.Divide));
+
+                tools.Add(
+                    AIFunctionFactory.Create(
+                        CalculatorTool.Multiply));
+                break;
+
+            case "rag":
+                if (includeDocumentSearchTool && retrievalService is null)
+                {
+                    throw new ArgumentNullException(
+                        nameof(retrievalService),
+                        "RAG agents require VectorRetrievalService.");
+                }
+
+                if (includeDocumentSearchTool)
+                {
+                    var searchDocumentsTool = new SearchDocumentsTool(
+                        retrievalService!,
+                        definition.Id);
+
+                    tools.Add(
+                        AIFunctionFactory.Create(
+                            searchDocumentsTool.SearchDocumentsAsync));
+                }
+                break;
+
+            default:
+                throw new NotSupportedException(
+                    $"Agent type '{definition.AgentType}' is not supported.");
+        }
+
+        var instructions = string.IsNullOrWhiteSpace(
+            definition.Instructions)
+            ? "You are a helpful AI assistant. Provide clear and concise answers."
+            : definition.Instructions;
+
+        return chatClient.AsAIAgent(
+            new ChatClientAgentOptions
+            {
+                Name = string.IsNullOrWhiteSpace(definition.Name)
+                    ? "AgenticRAG Assistant"
+                    : definition.Name,
+
+                ChatOptions = new ChatOptions
+                {
+                    Temperature = definition.Temperature,
+                    ToolMode = ChatToolMode.Auto,
+                    Tools = tools,
+                    Instructions = instructions
+                }
+            });
+    }
+}

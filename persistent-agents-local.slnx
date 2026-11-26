@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PersistentAgents.Local.Agents/PersistentAgents.Local.Agents.csproj" Id="9840f70a-fec0-4ffe-b2a5-4996dc121b78" />
+    <Project Path="src/PersistentAgents.Local.Console/PersistentAgents.Local.Console.csproj" Id="c47bd086-4906-4da3-b89e-3d9a3ce6b298" />
+    <Project Path="src/PersistentAgents.Local.Core/PersistentAgents.Local.Core.csproj" />
+    <Project Path="src/PersistentAgents.Local.Persistence/PersistentAgents.Local.Persistence.csproj" Id="bbb09852-72e5-4da6-9af2-490e9e03bad5" />
+    <Project Path="src/PersistentAgents.Local.RAG/PersistentAgents.Local.RAG.csproj" Id="d8fc09d3-bb4e-4e3d-abb0-552cfc65e1ca" />
+  </Folder>
+</Solution>
