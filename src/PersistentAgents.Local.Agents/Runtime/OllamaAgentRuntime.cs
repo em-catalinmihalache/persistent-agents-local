@@ -2,7 +2,6 @@
 using PersistentAgents.Local.Core.Abstractions;
 using PersistentAgents.Local.Core.Models;
 using PersistentAgents.Local.RAG.Services;
-using PersistentAgents.Local.RAG.Tools;
 
 using Microsoft.Extensions.AI;
 
@@ -57,56 +56,6 @@ public class OllamaAgentRuntime : IAgentRuntime
                 },
                 message.Content))
             .ToList();
-
-        if (isRagAgent)
-        {
-            var latestUserMessage = conversationHistory.LastOrDefault(message =>
-                string.Equals(
-                    message.Role,
-                    "user",
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (latestUserMessage is null)
-            {
-                throw new InvalidOperationException(
-                    "A RAG execution requires a user question.");
-            }
-
-            // Ollama's OpenAI-compatible API cannot require a model tool choice.
-            // Execute the local file-search tool deterministically and pass its result to the agent.
-            var searchDocumentsTool = new SearchDocumentsTool(
-                _retrievalService,
-                agent.Id);
-            var searchResult = await searchDocumentsTool.SearchDocumentsAsync(
-                latestUserMessage.Content,
-                cancellationToken: cancellationToken);
-
-            if (string.Equals(
-                searchResult,
-                "No relevant documents were found.",
-                StringComparison.Ordinal))
-            {
-                return "I'm sorry, but the uploaded document does not contain the necessary information to answer that question.";
-            }
-
-            Console.WriteLine();
-            Console.WriteLine("=== SearchDocuments Tool Result ===");
-            Console.WriteLine(searchResult);
-
-            messages.Insert(
-                0,
-                new ChatMessage(
-                    ChatRole.System,
-                    $"""
-                    Retrieved document context for the current question:
-
-                    {searchResult}
-
-                    Use only this retrieved result to answer the latest user question.
-                    Cite supporting passages with their exact [Source N] label.
-                    If this result does not answer the question, use the configured refusal response.
-                    """));
-        }
 
         var response = await chatAgent.RunAsync(
             messages,

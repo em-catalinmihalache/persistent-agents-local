@@ -110,8 +110,12 @@ public static class OllamaAgentFactory
                 ChatOptions = new ChatOptions
                 {
                     Temperature = definition.Temperature,
-                    // Ollama's OpenAI-compatible API does not support tool_choice=required.
-                    ToolMode = ChatToolMode.Auto,
+                    ToolMode = string.Equals(
+                        definition.AgentType,
+                        "RAG",
+                        StringComparison.OrdinalIgnoreCase) && includeDocumentSearchTool
+                        ? ChatToolMode.RequireSpecific("SearchDocumentsAsync")
+                        : ChatToolMode.Auto,
                     Tools = tools,
                     Instructions = instructions
                 }
