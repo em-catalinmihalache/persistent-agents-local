@@ -16,17 +16,32 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 const string agentName = "DotNetRAGAgent";
-const string question = "Can you explain Contoso's travel insurance coverage?";
 const string instructions = """
-    You are an AI assistant designed to answer user questions using only the information retrieved from the provided document(s).
+    You are a document retrieval assistant.
 
-    - Before answering a question about the document, you must call the SearchDocuments tool and use its result.
-    - If a user's question cannot be answered using the retrieved context, clearly respond:
+    You have access to a tool named SearchDocuments.
+
+    For every new user message about documents, you MUST call SearchDocuments
+    before generating an answer.
+
+    This applies to every follow-up question, even when previous assistant
+    messages contain relevant information.
+
+    Previous assistant messages are conversational context only.
+    They are not document evidence and must not replace a new search.
+
+    Do not answer from your own knowledge.
+    Do not generate an answer before receiving the tool result.
+
+    After receiving the SearchDocuments result:
+
+    - Use only the information returned by SearchDocuments.
+    - Cite supporting passages using their exact [Source N] labels.
+    - If SearchDocuments returns "No relevant documents were found.",
+      respond exactly:
       "I'm sorry, but the uploaded document does not contain the necessary information to answer that question."
-    - Do not answer from general knowledge or reasoning. Do not make assumptions or generate hypothetical explanations.
-    - Do not provide definitions, tutorials, or commentary that is not explicitly grounded in the document.
-    - For questions that have relevant content, answer accurately and cite the document explicitly.
-    - Treat the retrieved document context as your only source of knowledge.
+    - If the retrieved context does not contain enough information to answer,
+      use the same refusal response.
     """;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -138,59 +153,80 @@ await using (var scope = host.Services.CreateAsyncScope())
     var conversation = await services.GetRequiredService<IConversationService>()
         .CreateConversationAsync(agent.Id);
 
-    var run = new Run
-    {
-        AgentId = agent.Id,
-        ThreadId = conversation.Id,
-        Status = "Running",
-        StartedAt = DateTime.UtcNow
-    };
-    await dbContext.Runs.AddAsync(run);
-    await dbContext.SaveChangesAsync();
+    var executionService = services.GetRequiredService<IAgentExecutionService>();
 
     Console.WriteLine("=== Local AgenticRAG Sample ===");
+    Console.WriteLine();
     Console.WriteLine($"Agent: {agent.Name} ({agent.Provider}, {agent.Model}, {ollamaEmbeddingModel})");
     Console.WriteLine($"Document: {Path.GetFileName(documentPath)}");
     Console.WriteLine($"Conversation thread: {conversation.Id}");
-    Console.WriteLine($"Question: {question}");
-    Console.WriteLine("Searching the indexed document and generating an answer with Ollama...");
+    Console.WriteLine();
 
-    try
+    var questions = new[]
     {
-        var execution = await services.GetRequiredService<IAgentExecutionService>()
-            .ExecuteAsync(new AgentExecutionRequest
-            {
-                AgentId = agent.Id,
-                ConversationId = conversation.Id,
-                Message = question
-            });
+        "What does Contoso's travel insurance cover?",
+        "Does it also cover flight delays?"
+    };
 
-        run.CompletedAt = DateTime.UtcNow;
-        run.Status = execution.Success ? "Completed" : "Failed";
-        await dbContext.SaveChangesAsync();
-
-        if (!execution.Success)
+    for (int i = 0; i < questions.Length; i++)
+    {
+        string? currentQuestion = questions[i];
+        var run = new Run
         {
-            throw new InvalidOperationException(
-                execution.ErrorMessage ?? "Agent execution failed.");
-        }
+            AgentId = agent.Id,
+            ThreadId = conversation.Id,
+            Status = "Running",
+            StartedAt = DateTime.UtcNow
+        };
 
-        Console.WriteLine();
-        Console.WriteLine("=== Answer ===");
-        Console.WriteLine(execution.Answer);
-        Console.WriteLine();
-        Console.WriteLine($"Run status: {run.Status}");
-        Console.WriteLine($"Run ID: {run.Id}");
-        Console.WriteLine($"Conversation ID: {execution.ConversationId}");
-        Console.WriteLine($"Database: {databasePath}");
-    }
-    catch
-    {
-        run.CompletedAt = DateTime.UtcNow;
-        run.Status = "Failed";
+        await dbContext.Runs.AddAsync(run);
         await dbContext.SaveChangesAsync();
-        throw;
+
+        Console.WriteLine($"Question {i + 1}: {currentQuestion}");
+        Console.WriteLine("Searching the indexed document and generating an answer with Ollama...");
+
+        try
+        {
+            var execution = await executionService.ExecuteAsync(
+                new AgentExecutionRequest
+                {
+                    AgentId = agent.Id,
+                    ConversationId = conversation.Id,
+                    Message = currentQuestion
+                });
+
+            run.CompletedAt = DateTime.UtcNow;
+            run.Status = execution.Success ? "Completed" : "Failed";
+
+            await dbContext.SaveChangesAsync();
+
+            if (!execution.Success)
+            {
+                throw new InvalidOperationException(
+                    execution.ErrorMessage ?? "Agent execution failed.");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("=== Answer ===");
+            Console.WriteLine(execution.Answer);
+            Console.WriteLine();
+            Console.WriteLine($"Run ID: {run.Id}");
+            Console.WriteLine($"Run status: {run.Status}");
+            //Console.WriteLine($"Conversation ID: {execution.ConversationId}");
+            Console.WriteLine();
+        }
+        catch
+        {
+            run.CompletedAt = DateTime.UtcNow;
+            run.Status = "Failed";
+            await dbContext.SaveChangesAsync();
+            throw;
+        }
     }
+
+    Console.WriteLine("=== Conversation Context Test Completed ===");
+    Console.WriteLine($"Conversation ID: {conversation.Id}");
+    Console.WriteLine($"Database: {databasePath}");
 }
 
 Console.WriteLine("\nPress ENTER to exit...");

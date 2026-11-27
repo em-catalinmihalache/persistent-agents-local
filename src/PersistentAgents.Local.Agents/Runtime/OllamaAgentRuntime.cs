@@ -2,7 +2,6 @@
 using PersistentAgents.Local.Core.Abstractions;
 using PersistentAgents.Local.Core.Models;
 using PersistentAgents.Local.RAG.Services;
-using PersistentAgents.Local.RAG.Tools;
 
 using Microsoft.Extensions.AI;
 
@@ -16,6 +15,9 @@ public class OllamaAgentRuntime : IAgentRuntime
         VectorRetrievalService retrievalService,
         string endpoint)
     {
+        ArgumentNullException.ThrowIfNull(retrievalService);
+        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+
         _retrievalService = retrievalService;
         _endpoint = endpoint;
     }
@@ -60,53 +62,48 @@ public class OllamaAgentRuntime : IAgentRuntime
 
         if (isRagAgent)
         {
-            var latestUserMessage = conversationHistory.LastOrDefault(message =>
+            var hasUserMessage = conversationHistory.Any(message =>
                 string.Equals(
                     message.Role,
                     "user",
                     StringComparison.OrdinalIgnoreCase));
 
-            if (latestUserMessage is null)
+            if (!hasUserMessage)
             {
                 throw new InvalidOperationException(
                     "A RAG execution requires a user question.");
             }
+        }
 
-            // Ollama's OpenAI-compatible API cannot require a model tool choice.
-            // Execute the local file-search tool deterministically and pass its result to the agent.
-            var searchDocumentsTool = new SearchDocumentsTool(
-                _retrievalService,
-                agent.Id);
-            var searchResult = await searchDocumentsTool.SearchDocumentsAsync(
-                latestUserMessage.Content,
-                cancellationToken: cancellationToken);
+        Console.WriteLine();
+        Console.WriteLine("=== Agent Runtime ===");
 
-            if (string.Equals(
-                searchResult,
-                "No relevant documents were found.",
-                StringComparison.Ordinal))
-            {
-                return "I'm sorry, but the uploaded document does not contain the necessary information to answer that question.";
-            }
+        if (isRagAgent)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Document search tool is available to the agent.");            
+            Console.WriteLine("Waiting for the agent to decide whether to call SearchDocuments...");
+            Console.WriteLine();
+            Console.WriteLine("=== SearchDocuments Function ===");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("=== Messages Sent to ChatClientAgent ===");
+        Console.WriteLine();
+        Console.WriteLine($"Message count: {messages.Count}");
+
+        for (var i = 0; i < messages.Count; i++)
+        {
+            var message = messages[i];
 
             Console.WriteLine();
-            Console.WriteLine("=== SearchDocuments Tool Result ===");
-            Console.WriteLine(searchResult);
-
-            messages.Insert(
-                0,
-                new ChatMessage(
-                    ChatRole.System,
-                    $"""
-                    Retrieved document context for the current question:
-
-                    {searchResult}
-
-                    Use only this retrieved result to answer the latest user question.
-                    Cite supporting passages with their exact [Source N] label.
-                    If this result does not answer the question, use the configured refusal response.
-                    """));
+            Console.WriteLine($"--- Message {i + 1} ---");
+            Console.WriteLine($"Role: {message.Role}");
+            Console.WriteLine($"Content: {message.Text}");
         }
+
+        Console.WriteLine();
+        Console.WriteLine("=== End Messages ===");
 
         var response = await chatAgent.RunAsync(
             messages,

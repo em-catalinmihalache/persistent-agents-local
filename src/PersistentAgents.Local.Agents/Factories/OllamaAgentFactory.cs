@@ -81,12 +81,12 @@ public static class OllamaAgentFactory
                 if (includeDocumentSearchTool)
                 {
                     var searchDocumentsTool = new SearchDocumentsTool(
-                        retrievalService!,
-                        definition.Id);
+                        definition.Id,
+                        retrievalService!);
 
                     tools.Add(
                         AIFunctionFactory.Create(
-                            searchDocumentsTool.SearchDocumentsAsync));
+                            searchDocumentsTool.SearchDocuments));
                 }
                 break;
 
@@ -100,6 +100,13 @@ public static class OllamaAgentFactory
             ? "You are a helpful AI assistant. Provide clear and concise answers."
             : definition.Instructions;
 
+        ChatToolMode toolMode = string.Equals(
+            definition.AgentType,
+            "RAG",
+            StringComparison.OrdinalIgnoreCase)
+                ? ChatToolMode.RequireAny
+                : ChatToolMode.Auto;
+
         return chatClient.AsAIAgent(
             new ChatClientAgentOptions
             {
@@ -110,8 +117,7 @@ public static class OllamaAgentFactory
                 ChatOptions = new ChatOptions
                 {
                     Temperature = definition.Temperature,
-                    // Ollama's OpenAI-compatible API does not support tool_choice=required.
-                    ToolMode = ChatToolMode.Auto,
+                    ToolMode = toolMode,
                     Tools = tools,
                     Instructions = instructions
                 }

@@ -98,7 +98,7 @@ public class AgentExecutionService : IAgentExecutionService
 
             Console.WriteLine(
                 $"Conversation history count: {conversationHistory.Count}");
-
+            Console.WriteLine();
             Console.WriteLine("Calling agent runtime...");
 
             result.Answer = await _agentRuntime.ExecuteAsync(
@@ -106,25 +106,26 @@ public class AgentExecutionService : IAgentExecutionService
                 conversationHistory,
                 cancellationToken);
 
+            Console.WriteLine();
             Console.WriteLine("Agent runtime returned.");
 
-            Console.WriteLine(
-                $"Answer is null: {result.Answer is null}");
+            //Console.WriteLine(
+            //    $"Answer is null: {result.Answer is null}");
 
-            Console.WriteLine(
-                $"Answer is empty or whitespace: {string.IsNullOrWhiteSpace(result.Answer)}");
+            //Console.WriteLine(
+            //    $"Answer is empty or whitespace: {string.IsNullOrWhiteSpace(result.Answer)}");
 
-            Console.WriteLine(
-                $"Answer length: {result.Answer?.Length ?? 0}");
+            //Console.WriteLine(
+            //    $"Answer length: {result.Answer?.Length ?? 0}");
 
-            if (!string.IsNullOrWhiteSpace(result.Answer))
-            {
-                Console.WriteLine("Answer preview:");
-                Console.WriteLine(
-                    result.Answer.Length > 200
-                        ? result.Answer[..200]
-                        : result.Answer);
-            }
+            //if (!string.IsNullOrWhiteSpace(result.Answer))
+            //{
+            //    Console.WriteLine("Answer preview:");
+            //    Console.WriteLine(
+            //        result.Answer.Length > 200
+            //            ? result.Answer[..200]
+            //            : result.Answer);
+            //}
 
             Console.WriteLine("Saving assistant message...");
 

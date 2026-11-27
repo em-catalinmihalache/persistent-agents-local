@@ -17,9 +17,5 @@
     <ProjectReference Include="..\PersistentAgents.Local.RAG\PersistentAgents.Local.RAG.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Factories\" />
-    <Folder Include="Tools\" />
-  </ItemGroup>
 
 </Project>
