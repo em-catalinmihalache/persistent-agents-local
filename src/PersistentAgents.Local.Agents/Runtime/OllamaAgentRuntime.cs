@@ -2,6 +2,7 @@
 using PersistentAgents.Local.Core.Abstractions;
 using PersistentAgents.Local.Core.Models;
 using PersistentAgents.Local.RAG.Services;
+using PersistentAgents.Local.RAG.Tools;
 
 using Microsoft.Extensions.AI;
 
@@ -41,8 +42,8 @@ public class OllamaAgentRuntime : IAgentRuntime
         var chatAgent = OllamaAgentFactory.Create(
             _endpoint,
             agent,
-            isRagAgent ? null : _retrievalService,
-            includeDocumentSearchTool: !isRagAgent);
+            isRagAgent ? _retrievalService : null,
+            includeDocumentSearchTool: isRagAgent);
 
         var messages = conversationHistory
             .Select(message => new ChatMessage(
@@ -71,22 +72,26 @@ public class OllamaAgentRuntime : IAgentRuntime
                     "A RAG execution requires a user question.");
             }
 
-            var retrievedChunks = await _retrievalService.SearchAsync(
-                agent.Id,
+            // Ollama's OpenAI-compatible API cannot require a model tool choice.
+            // Execute the local file-search tool deterministically and pass its result to the agent.
+            var searchDocumentsTool = new SearchDocumentsTool(
+                _retrievalService,
+                agent.Id);
+            var searchResult = await searchDocumentsTool.SearchDocumentsAsync(
                 latestUserMessage.Content,
-                topK: 5,
                 cancellationToken: cancellationToken);
 
-            if (retrievedChunks.Count == 0)
+            if (string.Equals(
+                searchResult,
+                "No relevant documents were found.",
+                StringComparison.Ordinal))
             {
                 return "I'm sorry, but the uploaded document does not contain the necessary information to answer that question.";
             }
 
-            var context = string.Join(
-                "\n\n",
-                retrievedChunks.Select((result, index) =>
-                    $"[Source {index + 1}: document chunk {result.Chunk.Index}]\n" +
-                    result.Chunk.Content));
+            Console.WriteLine();
+            Console.WriteLine("=== SearchDocuments Tool Result ===");
+            Console.WriteLine(searchResult);
 
             messages.Insert(
                 0,
@@ -95,11 +100,11 @@ public class OllamaAgentRuntime : IAgentRuntime
                     $"""
                     Retrieved document context for the current question:
 
-                    {context}
+                    {searchResult}
 
-                    Use only these retrieved passages to answer the latest user question.
+                    Use only this retrieved result to answer the latest user question.
                     Cite supporting passages with their exact [Source N] label.
-                    If none of the passages answer the question, use the configured refusal response.
+                    If this result does not answer the question, use the configured refusal response.
                     """));
         }
 

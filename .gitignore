@@ -425,3 +425,5 @@ FodyWeavers.xsd
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
 /src/PersistentAgents.Local.Console/agents.db
+/src/PersistentAgents.Local.Console/agents.db-shm
+/src/PersistentAgents.Local.Console/agents.db-wal

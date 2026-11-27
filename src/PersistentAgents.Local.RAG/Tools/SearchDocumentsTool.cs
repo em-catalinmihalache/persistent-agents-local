@@ -27,25 +27,10 @@ public class SearchDocumentsTool
         if (results.Count == 0)
             return "No relevant documents were found.";
 
-        var response = new System.Text.StringBuilder();
-
-        foreach (var result in results)
-        {
-            response.AppendLine(
-                $"DocumentId: {result.Chunk.DocumentId}");
-
-            response.AppendLine(
-                $"ChunkIndex: {result.Chunk.Index}");
-
-            response.AppendLine(
-                $"Similarity: {result.Similarity:F4}");
-
-            response.AppendLine(
-                $"Content: {result.Chunk.Content}");
-
-            response.AppendLine();
-        }
-
-        return response.ToString();
+        return string.Join(
+            "\n\n",
+            results.Select((result, index) =>
+                $"[Source {index + 1}: document chunk {result.Chunk.Index}]\n" +
+                result.Chunk.Content));
     }
 }

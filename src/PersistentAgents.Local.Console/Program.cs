@@ -20,6 +20,7 @@ const string question = "Can you explain Contoso's travel insurance coverage?";
 const string instructions = """
     You are an AI assistant designed to answer user questions using only the information retrieved from the provided document(s).
 
+    - Before answering a question about the document, you must call the SearchDocuments tool and use its result.
     - If a user's question cannot be answered using the retrieved context, clearly respond:
       "I'm sorry, but the uploaded document does not contain the necessary information to answer that question."
     - Do not answer from general knowledge or reasoning. Do not make assumptions or generate hypothetical explanations.
