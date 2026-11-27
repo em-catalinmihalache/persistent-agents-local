@@ -18,15 +18,11 @@ public class SearchDocumentsTool
         int topK = 5,
         CancellationToken cancellationToken = default)
     {
-        Console.WriteLine("[Tool] SearchDocumentsAsync invoked.");
-
         var results = await _retrievalService.SearchAsync(
             _agentId,
             query,
             topK,
             cancellationToken: cancellationToken);
-
-        Console.WriteLine($"[Tool] Retrieved {results.Count} chunk(s).");
 
         if (results.Count == 0)
             return "No relevant documents were found.";
